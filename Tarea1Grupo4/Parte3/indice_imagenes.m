@@ -60,7 +60,7 @@ display('');
 fprintf('------------------------------------------------------------');
 display('');
 
-%for counter = 1:
+
 for i = 1:length(files)-1
     filename = files(i).name;
     fprintf('| %s |', filename);
@@ -81,16 +81,3 @@ for i = 1:length(files)-1
     fprintf('------------------------------------------------------------');
     display('');
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
