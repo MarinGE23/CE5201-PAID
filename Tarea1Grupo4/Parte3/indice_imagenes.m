@@ -42,7 +42,7 @@ function c = hqi(A, B)
     Delta_TC_Factor = 1 - (Delta_TC / (2 * M * N));
 
     % Calcular HD (correlación entre histogramas)
-    HD = sum(h_A .* h_B) / (sqrt(sum(h_A .^ 2)) * sqrt(sum(h_B .^ 2)));
+    HD = sum(h_A .* h_B) / sum(h_A .^ 2);;
 
     % Calcular HQI
     c = Delta_TC_Factor * HD;
