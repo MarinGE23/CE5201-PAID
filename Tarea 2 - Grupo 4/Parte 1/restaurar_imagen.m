@@ -31,13 +31,13 @@ function restaurar_imagen(imagen_original, imagen_binaria, num_iterations)
     imshow(I2)
     title(['(b) ', imagen_binaria],'FontSize',16)
 
-    % Imagen a Restaurar: I3
+    % Imagen a Reconstruir: I3
     I3 = I1;
     for c=1:3
         I3(:,:,c) = I1(:,:,c) + I2;  % Añadir la marca en cada canal
     end
 
-    % Restaurar
+    % Reconstruir
     I4 = im2double(I3);
 
     % Definir la mascara de la region afectada (1: fondo blanco, 0: fondo negro)
@@ -52,7 +52,7 @@ function restaurar_imagen(imagen_original, imagen_binaria, num_iterations)
             % Crear una copia del canal que se va a modificar
             current_channel = I4(:,:,c);
 
-            % Restaurar solo los pixeles dentro de la region afectada (fondo blanco)
+            % Reconstruir solo los pixeles dentro de la region afectada (fondo blanco)
             current_channel(mask_ohm == 1) = smoothed_img(mask_ohm == 1);
 
             % Asignar el canal restaurado de vuelta a la imagen
@@ -60,21 +60,11 @@ function restaurar_imagen(imagen_original, imagen_binaria, num_iterations)
         end
     end
 
-    % Imagen Restaurada: I4
+    % Imagen Reconstruida: I4
     I4 = im2uint8(I4);
     subplot(1,3,3)
     imshow(I4)
-    title('(c) Imagen Restaurada','FontSize',16)
-
-    % Calcular SSIM entre la imagen original y la imagen restaurada para cada canal
-    ssim_r = ssim(I1(:,:,1), I4(:,:,1));
-    ssim_g = ssim(I1(:,:,2), I4(:,:,2));
-    ssim_b = ssim(I1(:,:,3), I4(:,:,3));
-
-    % Promedio del SSIM entre los canales
-    ssim_avg = mean([ssim_r, ssim_g, ssim_b]);
-
-    disp(['SSIM entre Imagen Original e Imagen Restaurada: ', num2str(ssim_avg)]);
+    title('(c) Imagen Reconstruida','FontSize',16)
 end
 
 % Llamar a la funcion tres veces con diferentes imagenes
