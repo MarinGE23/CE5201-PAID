@@ -2,149 +2,88 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-# Función principal para cargar y procesar la imagen
-def load_and_process_image(image_path, resize_dim=(128, 128)):
-    """
-    Carga una imagen desde una ruta especificada, la convierte a RGB, 
-    la normaliza y la redimensiona para el análisis.
+# Definir la matriz J2 de entradas reales obtenida en la Pregunta 1
+J2 = np.array([[0, 1, 0, 0],
+               [-1, 0, 0, 0],
+               [0, 0, 0, 1],
+               [0, 0, -1, 0]])
 
-    Entrada:
-        - image_path (str): Ruta del archivo de la imagen.
-        - resize_dim (tuple): Dimensiones a las que se redimensiona la imagen (por defecto 128x128).
+# Cargar la imagen 'lena.jpg' en escala de grises
+image = cv2.imread("C:/Users/Felipe vargas/OneDrive - Estudiantes ITCR/Escritorio/CE5201-PAID/Tarea 2 - Grupo 4/Parte 2/lena.jpg", cv2.IMREAD_GRAYSCALE)
+
+# Obtener las dimensiones de la imagen
+m, n = image.shape
+
+# Definir la transformada F para un píxel usando la matriz J2
+def F_transform(A_pixel):
+    Ar = A_pixel  # La imagen es en escala de grises, por lo que A_pixel es un valor único
     
-    Salida:
-        - img_resized (np.ndarray): Imagen redimensionada y normalizada.
-        - dims (tuple): Dimensiones de la imagen redimensionada.
+    # Crear la matriz 4x4 utilizando Ar para representar el píxel
+    F_A = np.array([[0, -Ar, 0, 0],
+                    [Ar, 0, 0, 0],
+                    [0, 0, 0, -Ar],
+                    [0, 0, Ar, 0]])
+    return F_A
+
+# Definir la matriz E usando la matriz J2
+def E_matrix(p, q, r, T):
+    I_4 = np.eye(4)  # Matriz identidad 4x4
     
-    Restricciones:
-        - La imagen debe estar en formato soportado por OpenCV.
-        - La ruta debe ser válida y accesible.
-    """
-    img = cv2.imread("C:/Users/Felipe vargas/OneDrive - Estudiantes ITCR/Escritorio/CE5201-PAID/Tarea 2 - Grupo 4/Parte 2/lena.jpg")
-    if img is None:
-        raise ValueError("Error: No se pudo cargar la imagen.")
+    # Calcular el término coseno y seno para la matriz E
+    cos_term = np.cos(2 * np.pi * p * q / T)
+    sin_term = np.sin(2 * np.pi * p * q / T)
     
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) / 255.0
-    img_resized = cv2.resize(img, resize_dim)
-    return img_resized, img_resized.shape
+    # Construir la matriz E
+    E = I_4 * cos_term - J2 * sin_term
+    return E
 
+# Implementar la DFT-2D Hiperpcompleja
+def hypercomplex_dft(image):
+    m, n = image.shape  # Dimensiones de la imagen
+    F_uv = np.zeros((m, n, 4, 4), dtype=complex)  # Inicializar la matriz F(u, v)
 
-# Función que calcula la DFT-2D de una imagen a color
-def DFT_2D(img):
-    """
-    Calcula la Transformada Discreta de Fourier (DFT) 2D de una imagen de entrada.
-
-    Entrada:
-        - img (np.ndarray): Imagen de entrada redimensionada (M x N x 3), 
-                            los valores deben estar normalizados.
+    # Recorrer las frecuencias (u, v)
+    for u in range(m):
+        for v in range(n):
+            sum_F = np.zeros((4, 4), dtype=complex)  # Inicializar la suma
+            
+            # Calcular la suma doble de la fórmula DFT-2D
+            for r in range(m):
+                for s in range(n):
+                    A_pixel = image[r, s]  # Valor de intensidad del píxel
+                    
+                    # Aplicar la transformación F[A(x, y)]
+                    F_A = F_transform(A_pixel)
+                    
+                    # Obtener las matrices E correspondientes
+                    E_r_u = E_matrix(r, u, s, m)
+                    E_s_v = E_matrix(s, v, r, n)
+                    
+                    # Sumar a la matriz de frecuencia F(u, v)
+                    sum_F += np.dot(np.dot(E_r_u, F_A), E_s_v.T)
+            
+            # Normalizar el resultado
+            F_uv[u, v] = (1 / np.sqrt(m * n)) * sum_F
     
-    Salida:
-        - dft_result (np.ndarray): Matriz compleja con el resultado de la DFT 2D.
-    
-    Restricciones:
-        - La imagen debe ser de dimensiones MxNx3 (imagen a color).
-        - La imagen debe estar normalizada (valores entre 0 y 1).
-    """
-    M, N = img.shape[:2]
-    dft_result = np.zeros((M, N), dtype=np.complex128)
+    return F_uv
 
-    for u in range(M):
-        for v in range(N):
-            sum_term = 0
-            for x in range(M):
-                for y in range(N):
-                    pixel = img[x, y].sum() / 3  # Promedio de los canales RGB
-                    exponent = np.exp(-2j * np.pi * ((u * x / M) + (v * y / N)))
-                    sum_term += pixel * exponent
-            dft_result[u, v] = sum_term
-    return dft_result
+# Aplicar la DFT-2D Hiperpcompleja
+F_transformed = hypercomplex_dft(image)
 
+# Calcular el espectro usando la norma matricial en lugar del valor absoluto
+# Representación logarítmica
+spectrum = np.zeros((m, n))
 
-# Función para centrar el espectro de la DFT
-def center_spectrum(F_result):
-    """
-    Aplica fftshift para centrar las frecuencias bajas en el espectro.
+for u in range(m):
+    for v in range(n):
+        # Usar una norma matricial, por ejemplo, la norma de Frobenius
+        norm_value = np.linalg.norm(F_transformed[u, v], 'fro')
+        # Aplicar la representación logarítmica
+        spectrum[u, v] = np.log(1 + norm_value)
 
-    Entrada:
-        - F_result (np.ndarray): Matriz compleja de la DFT 2D sin centrar.
-    
-    Salida:
-        - F_result_shifted (np.ndarray): Espectro centrado en las frecuencias bajas.
-    
-    Restricciones:
-        - La entrada debe ser una matriz compleja de dimensiones MxN.
-    """
-    return np.fft.fftshift(F_result)
-
-
-# Función para calcular la magnitud logarítmica del espectro
-def calculate_log_magnitude(F_shifted):
-    """
-    Calcula la magnitud logarítmica de la DFT para visualizar mejor el espectro.
-
-    Entrada:
-        - F_shifted (np.ndarray): Matriz compleja con la DFT centrada.
-    
-    Salida:
-        - spectral_magnitude (np.ndarray): Matriz en escala de grises del espectro de frecuencias.
-    
-    Restricciones:
-        - Los valores complejos deben ser convertidos a magnitudes (valor absoluto).
-    """
-    return np.log(np.abs(F_shifted) + 1)  # Evitar log(0) con +1
-
-
-# Función para graficar el espectro de frecuencias
-def plot_spectrum(spectral_magnitude):
-    """
-    Grafica el espectro de frecuencias en una imagen en escala de grises.
-
-    Entrada:
-        - spectral_magnitude (np.ndarray): Espectro de frecuencias en escala logarítmica.
-    
-    Salida:
-        - Visualización del espectro de frecuencias.
-    
-    Restricciones:
-        - La entrada debe ser una matriz 2D en escala de grises.
-    """
-    plt.imshow(spectral_magnitude, cmap='gray')
-    plt.title('Espectro DFT-2D')
-    plt.axis('off')
-    plt.show()
-
-
-# Función principal que integra todos los pasos para procesar la imagen y visualizar el espectro
-def process_image_and_plot_spectrum(image_path):
-    """
-    Carga una imagen, calcula la DFT 2D, centra el espectro, calcula la magnitud logarítmica
-    y muestra el espectro de frecuencias.
-
-    Entrada:
-        - image_path (str): imagen xd.
-    
-    Salida:
-        - Visualización del espectro de frecuencias.
-    """
-    # Cargar y redimensionar la imagen
-    img_resized, dims = load_and_process_image(image_path)
-    print(f"Imagen procesada con dimensiones: {dims}")
-
-    # Calcular la DFT-2D
-    F_result = DFT_2D(img_resized)
-    print("Transformada Discreta de Fourier calculada.")
-
-    # Centrar el espectro
-    F_shifted = center_spectrum(F_result)
-    print("Espectro centrado con fftshift.")
-
-    # Calcular la magnitud logarítmica
-    spectral_magnitude = calculate_log_magnitude(F_shifted)
-    print(f"Valores del espectro: Mínimo = {spectral_magnitude.min()}, Máximo = {spectral_magnitude.max()}")
-
-    # Graficar el espectro
-    plot_spectrum(spectral_magnitude)
-
-
-# Ejecutar el procesamiento completo para una imagen específica
-process_image_and_plot_spectrum('lena.jpg')  # Cambia la ruta si es necesario
+# Mostrar el espectro en una imagen
+plt.figure(figsize=(6, 6))
+plt.imshow(spectrum, cmap='gray')
+plt.title('Espectro de Frecuencia (DFT-2D Hiperpcompleja)')
+plt.colorbar()
+plt.show()
